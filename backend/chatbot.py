@@ -5,21 +5,23 @@ from retriever import get_context_for_query, get_sources_for_query
 client = Groq(api_key=GROQ_API_KEY)
 
 
-def ask(question: str) -> dict:
-    context = get_context_for_query(question)
-    sources = get_sources_for_query(question)
+def ask(question: str, repo: str = None) -> dict:
+    context = get_context_for_query(question, repo=repo)
+    sources = get_sources_for_query(question, repo=repo)
 
-    prompt = f"""You are a QA Knowledge Assistant. Answer questions about test files.
+    prompt = f"""You are a QA Knowledge Assistant helping engineers understand test coverage.
 
-Context from test files:
+Context from repository files (use this to understand the codebase, do NOT reproduce the code in your answer):
 {context}
 
 Question: {question}
 
 Rules:
 - Answer in maximum 5 bullet points
-- Mention specific file names and function names
-- If not found in context, say "Not found in indexed files"
+- A TEST file starts with test_ or ends with _test — functions in these files are actual tests
+- Source code files (main.py, healer.py, chatbot.py etc) are NOT tests
+- If you see no test_ files in context, say "No test files found in this repo"
+- Mention specific file names and function names when relevant
 - Do NOT repeat yourself
 
 Answer:"""
@@ -28,12 +30,10 @@ Answer:"""
         model=GROQ_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.1,
-        max_tokens=500,
-        stop=None
+        max_tokens=500
     )
 
     answer = response.choices[0].message.content.strip()
-
     return {
         "answer": answer,
         "sources": sources,
@@ -42,55 +42,49 @@ Answer:"""
 
 
 def find_coverage_gaps(owner: str, repo: str) -> dict:
-    gap_prompt = f"""Based on the test files from the repository {owner}/{repo}, 
-analyze what is being tested and identify gaps.
-
-Look at the test files in context and:
-1. List what features/flows ARE currently tested
-2. List what common features are likely MISSING from tests
-3. Suggest 5 specific test cases that should be added
-
-Be specific about file names and function names you see.
-
-Context will be provided by the system."""
-
     context = get_context_for_query(
-        f"test coverage features tested in {repo}"
+        f"test coverage features tested in {repo}", repo=repo
     )
 
-    full_prompt = f"""You are a QA Coverage Analyst. Analyze these test files and 
-find coverage gaps.
+    prompt = f"""You are a QA Coverage Analyst for the repository: {repo}
 
-Test files context:
+Context from repository files:
 {context}
 
-{gap_prompt}
+Analyze the files and answer:
+1. What is ACTUALLY tested — only count files starting with test_ or ending with _test
+2. What SOURCE CODE files exist but have NO corresponding test files
+3. Suggest 5 specific test cases to add
 
-Format your response as:
+Important:
+- Do NOT treat source code functions as tests
+- If no test_ files exist, say the repo has zero test coverage
+- Be specific about file names
+
+Format exactly as:
 COVERED:
-- list what is tested
+- list only real test functions found
 
 GAPS FOUND:
-- list what is missing
+- list source files with no tests
 
 SUGGESTED TEST CASES:
-- specific test cases to add"""
+1. specific test case
+2. specific test case
+3. specific test case
+4. specific test case
+5. specific test case"""
 
     response = client.chat.completions.create(
         model=GROQ_MODEL,
-        messages=[{"role": "user", "content": full_prompt}],
-        temperature=0.2,
-        max_tokens=1500
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1,
+        max_tokens=2000
     )
 
     answer = response.choices[0].message.content.strip()
-
     return {
         "analysis": answer,
         "repo": repo,
-        "sources": sources_for_gap(owner, repo)
+        "sources": get_sources_for_query(f"test coverage {repo}", repo=repo)
     }
-
-
-def sources_for_gap(owner: str, repo: str) -> list:
-    return get_sources_for_query(f"test coverage {repo}")

@@ -1,3 +1,5 @@
+from importlib.metadata import files
+
 import requests
 from config import GITHUB_TOKEN
 
@@ -7,6 +9,7 @@ headers = {
 }
 
 SUPPORTED_EXTENSIONS = [".py", ".ts", ".java", ".js", ".md", ".txt"]
+EXCLUDED_FILES = [".env", ".env.example", "healing_log.json", "test_results.txt"]
 
 def get_repo_files(owner: str, repo: str) -> list:
     files = []
@@ -23,7 +26,8 @@ def get_repo_files(owner: str, repo: str) -> list:
         path = item.get("path", "")
         if item.get("type") == "blob":
             ext = "." + path.split(".")[-1] if "." in path else ""
-            if ext in SUPPORTED_EXTENSIONS:
+            filename = path.split("/")[-1]
+            if ext in SUPPORTED_EXTENSIONS and filename not in EXCLUDED_FILES:
                 files.append({
                     "path": path,
                     "url": item.get("url"),

@@ -23,7 +23,7 @@ export default function App() {
     setQuestion("");
     setLoading(true);
     try {
-      const res = await axios.post(`${API}/chat`, { question });
+      const res = await axios.post(`${API}/chat`, { question, repo });
       setMessages((prev) => [...prev, { role: "bot", text: res.data.answer }]);
       setSources(res.data.sources || []);
     } catch {

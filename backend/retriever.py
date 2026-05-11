@@ -7,12 +7,15 @@ client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 collection = client.get_or_create_collection(name=COLLECTION_NAME)
 
 
-def search(query: str, n_results: int = 5) -> list:
+def search(query: str, n_results: int = 5, repo: str = None) -> list:
     query_embedding = model.encode(query).tolist()
+
+    where_filter = {"repo": {"$eq": repo}} if repo else None
 
     results = collection.query(
         query_embeddings=[query_embedding],
         n_results=n_results,
+        where=where_filter,
         include=["documents", "metadatas", "distances"]
     )
 
@@ -33,8 +36,8 @@ def search(query: str, n_results: int = 5) -> list:
     return formatted
 
 
-def get_context_for_query(query: str) -> str:
-    results = search(query)
+def get_context_for_query(query: str, repo: str = None) -> str:
+    results = search(query, repo=repo)
 
     if not results:
         return "No relevant context found."
@@ -49,8 +52,8 @@ def get_context_for_query(query: str) -> str:
     return "\n\n".join(context_parts)
 
 
-def get_sources_for_query(query: str) -> list:
-    results = search(query)
+def get_sources_for_query(query: str, repo: str = None) -> list:
+    results = search(query, repo=repo)
     seen = set()
     sources = []
 

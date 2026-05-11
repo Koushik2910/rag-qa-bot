@@ -23,6 +23,7 @@ class RepoRequest(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str
+    repo: str = None
 
 class GapRequest(BaseModel):
     owner: str
@@ -70,7 +71,7 @@ def chat(request: ChatRequest):
                 detail="Question cannot be empty"
             )
 
-        result = ask(request.question)
+        result = ask(request.question, repo=request.repo)
         return {
             "status": "success",
             "question": result["question"],
