@@ -3,11 +3,13 @@
 > Ask questions about your live GitHub test repos using RAG + Groq + ChromaDB
 
 ## What It Does
-- Connects to your **live GitHub repos** — no manual uploads
+- Connects to your **live GitHub repos** — no manual uploads, always up to date
 - Answers questions like *"What tests cover login?"* from your actual code
-- Finds **coverage gaps** automatically — tells you what's NOT tested
+- Finds **coverage gaps** automatically — correctly identifies real test files vs source code
 - Suggests specific test cases to fill the gaps
 - Shows exact **source file + relevance score** for every answer
+- **Repo-filtered search** — answers are scoped to the selected repo only
+- **Security-safe** — `.env` and sensitive files are never indexed
 
 ## Tech Stack
 | Layer | Tool |
@@ -26,19 +28,25 @@ GitHub Repo → FastAPI → sentence-transformers → ChromaDB
 React UI ← FastAPI ← Groq LLM ← relevant chunks ←──┘
 ```
 
+## Key Features
+- **Repo filtering** — ChromaDB searches only the selected repo, no cross-repo mixing
+- **Smart gap analysis** — only counts files starting with `test_` or ending with `_test` as real tests
+- **Excluded from indexing** — `.env`, `healing_log.json`, `test_results.txt` are never stored
+- **Persistent vector store** — index once, query anytime without re-embedding
+
 ## Project Structure
 ```
 rag-qa-bot/
 ├── backend/
 │   ├── main.py              # FastAPI routes
-│   ├── github_connector.py  # Fetches live GitHub files
+│   ├── github_connector.py  # Fetches live GitHub files (with exclusion list)
 │   ├── embedder.py          # Chunks + embeds into ChromaDB
-│   ├── retriever.py         # Searches ChromaDB
+│   ├── retriever.py         # Searches ChromaDB with repo filter
 │   ├── chatbot.py           # Groq LLM answer generation
 │   └── config.py            # Settings
 ├── frontend/
 │   └── src/App.jsx          # React chat UI
-└── chroma_db/               # Auto-created vector store
+└── chroma_db/               # Auto-created vector store (git-ignored)
 ```
 
 ## Setup
@@ -83,7 +91,7 @@ Open `http://localhost:5173`
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | /ingest | Index a GitHub repo |
-| POST | /chat | Ask a question |
+| POST | /chat | Ask a question (scoped to repo) |
 | POST | /gaps | Find coverage gaps |
 | GET | /stats | ChromaDB stats |
 | DELETE | /reset | Clear vector DB |
